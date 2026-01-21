@@ -1,0 +1,21 @@
+{
+  "idf.openOcdConfigs": [
+    "board/esp32p4-builtin.cfg"
+  ],
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32p4"
+  },
+  "clangd.path": "/Users/tbabiuk/.espressif/tools/esp-clang/esp-19.1.2_20250312/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=/Users/tbabiuk/.espressif/tools/riscv32-esp-elf/esp-14.2.0_20241119/riscv32-esp-elf/bin/riscv32-esp-elf-gcc",
+    "--compile-commands-dir=/Users/tbabiuk/work/room-assistant/lvgl_esp32p4/build"
+  ],
+  "files.associations": {
+    "ui.h": "c"
+  },
+  "idf.flashType": "UART",
+  "idf.port": "/dev/tty.usbmodem5AB01661121",
+  "editor.formatOnSave": true,
+  "clang-format.executable": "/opt/homebrew/bin/clang-format"
+}
