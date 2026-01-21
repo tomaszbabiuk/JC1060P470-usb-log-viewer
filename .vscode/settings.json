@@ -15,7 +15,7 @@
     "ui.h": "c"
   },
   "idf.flashType": "UART",
-  "idf.port": "/dev/tty.usbmodem5AB01661121",
+  "idf.port": "/dev/tty.usbserial-210",
   "editor.formatOnSave": true,
   "clang-format.executable": "/opt/homebrew/bin/clang-format"
 }
