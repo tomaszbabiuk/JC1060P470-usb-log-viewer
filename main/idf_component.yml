@@ -4,7 +4,20 @@ dependencies:
   usb_host_cp210x_vcp: "^2"
   usb_host_ftdi_vcp: "^2"
   usb_host_vcp: "^1"
+  
   espressif/esp_lcd_jd9165: "^1.0.1"
+  
+  espressif/esp32_p4_function_ev_board:
+    version: "4.1.*"
+
+  chmorgan/esp-audio-player:
+    version: "1.0.*"
+    public: true
+
+  chmorgan/esp-file-iterator:
+    version: "1.0.0"
+    public: true
+
   lvgl/lvgl:
     version: "9.2.*"
     public: true

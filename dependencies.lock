@@ -270,8 +270,7 @@ direct_dependencies:
 - espressif/usb_host_cp210x_vcp
 - espressif/usb_host_ftdi_vcp
 - espressif/usb_host_vcp
-- idf
 - lvgl/lvgl
-manifest_hash: fbf3547b2482ffb05894422fd0df22034193e6a4e1c6cb7d4949da008203920a
+manifest_hash: d4ec7eec8d4e14fe382eee44daa1ca2b543782e60310590f24d4736bc5feaa0d
 target: esp32p4
 version: 2.0.0
