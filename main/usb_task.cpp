@@ -15,6 +15,8 @@
 
 #include "usb/cdc_acm_host.h"
 #include "usb/vcp_ftdi.hpp"
+#include "usb/vcp_ch34x.hpp"
+#include "usb/vcp_cp210x.hpp"
 #include "usb/vcp.hpp"
 #include "usb/usb_host.h"
 
@@ -22,25 +24,63 @@
 
 using namespace esp_usb;
 
-// Change these values to match your needs
-#define MESSAGE_QUEUE_SIZE          (100)
-#define MAX_MESSAGE_LEN             (128)
 #define EXAMPLE_BAUDRATE            (115200)
 #define EXAMPLE_STOP_BITS           (0)      // 0: 1 stopbit, 1: 1.5 stopbits, 2: 2 stopbits
 #define EXAMPLE_PARITY              (0)      // 0: None, 1: Odd, 2: Even, 3: Mark, 4: Space
 #define EXAMPLE_DATA_BITS           (8)
+#define UART_INPUT_BUFFER_SIZE      (256)
 
-/**
- * @brief Message structure for the queue
- */
-typedef struct {
-    uint8_t data[MAX_MESSAGE_LEN];
-    size_t len;
-} message_t;
+char line_buffer[UART_INPUT_BUFFER_SIZE];
 
 namespace {
 static const char *TAG = "VCP example";
 static SemaphoreHandle_t device_disconnected_sem;
+
+bool exclude_ftdi_ansisgr_newlines(uint8_t in) {
+  static bool ftdi_frame_started = false;
+  static bool ansi_sgr_started = false;
+  static bool new_line_started = false;
+  // ftdi
+  if (in == 0x01) {
+    ftdi_frame_started = true;
+    return true;
+  }
+
+  if (ftdi_frame_started && (in == 0x60 || in == 0x62)) {
+    ftdi_frame_started = false;
+    return true;
+  }
+
+  // ansi-sgr
+  if (in == 0x1b) {
+    ansi_sgr_started = true;
+    return true;
+  }
+
+  if (ansi_sgr_started && in == 0x6d) {
+    ansi_sgr_started = false;
+    return true;
+  }
+
+  if (ansi_sgr_started) {
+    // any byte inside the sgr
+    return true;
+  }
+
+  // new line
+  if (in == 0x0d) {
+    new_line_started = true;
+    return true;
+  }
+
+  if (new_line_started && in == 0x0a) {
+    new_line_started = false;
+    return true;
+  }
+
+  return false;
+}
+
 
 /**
  * @brief Data received callback
@@ -56,19 +96,34 @@ static SemaphoreHandle_t device_disconnected_sem;
  */
 static bool handle_rx(const uint8_t *data, size_t data_len, void *arg)
 {
-    printf("%.*s", data_len, data);
+	static message_t out_message;
+  	QueueHandle_t message_queue = (QueueHandle_t)arg;
+  	if (message_queue != NULL) {
+        for (int i = 0; i < data_len; i++) {
+            uint8_t byte = data[i];
+            bool excluded = exclude_ftdi_ansisgr_newlines(byte);
+            bool flush = false;
+            if (excluded) {
+            if (byte == 0x0a) {
+                flush = true;
+            }
+            } else {
+            out_message.data[out_message.len] = byte;
+            out_message.len++;
+            }
 
-    QueueHandle_t message_queue = (QueueHandle_t)arg;
-    if (message_queue != NULL) {
-        message_t msg;
-        size_t len = data_len < MAX_MESSAGE_LEN ? data_len : MAX_MESSAGE_LEN;
-        memcpy(msg.data, data, len);
-        msg.len = len;
-        
-        // Send to queue, discarding oldest message if queue is full
-        xQueueSendToBack(message_queue, &msg, 0);
+            if (out_message.len == MAX_MESSAGE_LEN -1) {
+                flush = true;
+            }
+
+            if (flush) {
+                printf("%s\n", (char *)out_message.data);
+				xQueueSendToBack(message_queue, &out_message, 0);
+                memset(out_message.data, 0, MAX_MESSAGE_LEN);
+                out_message.len = 0;
+            }
+        }
     }
-
     return true;
 }
 
@@ -148,15 +203,15 @@ static void usb_task_internal(void *arg)
 
     // Register VCP drivers to VCP service
     VCP::register_driver<FT23x>();
-    //VCP::register_driver<CP210x>();
-    //VCP::register_driver<CH34x>();
+    VCP::register_driver<CP210x>();
+    VCP::register_driver<CH34x>();
 
     // Do everything else in a loop, so we can demonstrate USB device reconnections
     while (true) {
         const cdc_acm_host_device_config_t dev_config = {
             .connection_timeout_ms = 5000, // 5 seconds, enough time to plug the device in or experiment with timeout
-            .out_buffer_size = 512,
-            .in_buffer_size = 512,
+            .out_buffer_size = UART_INPUT_BUFFER_SIZE,
+            .in_buffer_size = UART_INPUT_BUFFER_SIZE,
             .event_cb = handle_event,
             .data_cb = handle_rx,
             .user_arg = message_queue,

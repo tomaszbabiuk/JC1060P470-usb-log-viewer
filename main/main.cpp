@@ -19,35 +19,18 @@
 
 #include "usb_task.h"
 
-// Change these values to match your needs
-#define MESSAGE_QUEUE_SIZE          (100)
-#define MAX_MESSAGE_LEN             (128)
-
-
-lv_obj_t * label = NULL;
-
-/**
- * @brief Message structure for the queue
- */
-typedef struct {
-    uint8_t data[MAX_MESSAGE_LEN];
-    size_t len;
-} message_t;
-
+lv_obj_t * log_container = NULL;
 static QueueHandle_t message_queue = NULL;
 
-void lv_hello_world(void)
+static void lv_hello_world(void)
 {
     /* Create a screen object */
     lv_obj_t * screen = lv_obj_create(NULL);
-    lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+    
+    log_container = lv_obj_create(screen);
+    lv_obj_set_size(log_container, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_flex_flow(log_container, LV_FLEX_FLOW_COLUMN);
 
-    /* Create a label */
-    label = lv_label_create(screen);
-    lv_label_set_text(label, "Hello, World!");
-
-    /* Center the label on the screen */
-    lv_obj_center(label);
 
     /* Load the screen */
     lv_scr_load(screen);
@@ -81,13 +64,8 @@ static void ui_task(void *pvParameters)
 
     bsp_display_unlock();
 
-    // UI task can optionally delete itself or stay running
     vTaskDelete(NULL);
 }
-
-namespace {
-static const char *TAG = "UI";
-} // namespace
 
 /**
  * @brief Display update task
@@ -102,30 +80,20 @@ static void display_update_task(void *pvParameters)
 
     while (1) {
         // Wait for a message from the queue
-        if (xQueueReceive(message_queue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
-            if (label != NULL) {
-                // Convert binary data to printable string
-                char buf[MAX_MESSAGE_LEN * 2 + 1];
-                size_t buf_idx = 0;
-                
-                for (size_t i = 0; i < msg.len && buf_idx < sizeof(buf) - 1; i++) {
-                    if (msg.data[i] >= 32 && msg.data[i] < 127) {
-                        // Printable ASCII character
-                        buf[buf_idx++] = msg.data[i];
-                    } else if (msg.data[i] == '\n' || msg.data[i] == '\r') {
-                        // Preserve newlines
-                        buf[buf_idx++] = msg.data[i];
-                    } else {
-                        // Non-printable character, skip or represent as .
-                        buf[buf_idx++] = '.';
-                    }
-                }
-                buf[buf_idx] = '\0';
-                
-                bsp_display_lock(0);
-                lv_label_set_text(label, buf);
-                bsp_display_unlock();
+        if (xQueueReceive(message_queue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {  
+            uint32_t logs = lv_obj_get_child_count(log_container);
+
+            bsp_display_lock(0);
+            lv_obj_t *log_lbl = lv_label_create(log_container);
+            lv_obj_set_width(log_lbl, LV_PCT(100));
+            lv_obj_set_height(log_lbl, LV_SIZE_CONTENT);
+            lv_label_set_text(log_lbl, msg.data);
+            if (logs > 50) {
+                lv_obj_t * first_child = lv_obj_get_child(log_container, 0);
+                lv_obj_del(first_child);
             }
+            lv_obj_scroll_to_view(log_lbl, LV_ANIM_OFF);
+            bsp_display_unlock();
         }
     }
 }
@@ -146,7 +114,7 @@ extern "C" void app_main(void)
     assert(ui_task_created == pdTRUE);
 
     // Create the display update task
-    BaseType_t display_task_created = xTaskCreate(display_update_task, "display_task", 2048, NULL, tskIDLE_PRIORITY + 1, NULL);
+    BaseType_t display_task_created = xTaskCreate(display_update_task, "display_task", 4096, NULL, tskIDLE_PRIORITY + 1, NULL);
     assert(display_task_created == pdTRUE);
 
     // Create the USB task
