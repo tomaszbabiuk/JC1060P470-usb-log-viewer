@@ -14,17 +14,6 @@
 extern "C" {
 #endif
 
-#define MESSAGE_QUEUE_SIZE          (50)
-#define MAX_MESSAGE_LEN             (256)
-
-/**
- * @brief Message structure for the queue
- */
-typedef struct {
-    char data[MAX_MESSAGE_LEN] = { '\0' };
-    size_t len;
-} message_t;
-
 /**
  * @brief Initialize and start the USB task
  *

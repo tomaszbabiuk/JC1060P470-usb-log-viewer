@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: CC0-1.0
- */
-
 #include <stdio.h>
 #include <string.h>
 #include <memory>
@@ -21,6 +15,7 @@
 #include "usb/usb_host.h"
 
 #include "usb_task.h"
+#include "messaging.h"
 
 using namespace esp_usb;
 
@@ -81,19 +76,6 @@ bool exclude_ftdi_ansisgr_newlines(uint8_t in) {
   return false;
 }
 
-
-/**
- * @brief Data received callback
- *
- * Just pass received data to stdout
- *
- * @param[in] data     Pointer to received data
- * @param[in] data_len Length of received data in bytes
- * @param[in] arg      Argument we passed to the device open function
- * @return
- *   true:  We have processed the received data
- *   false: We expect more data
- */
 static bool handle_rx(const uint8_t *data, size_t data_len, void *arg)
 {
 	static message_t out_message;
@@ -127,14 +109,7 @@ static bool handle_rx(const uint8_t *data, size_t data_len, void *arg)
     return true;
 }
 
-/**
- * @brief Device event callback
- *
- * Apart from handling device disconnection it doesn't do anything useful
- *
- * @param[in] event    Device event type and data
- * @param[in] user_ctx Argument we passed to the device open function
- */
+
 static void handle_event(const cdc_acm_host_dev_event_data_t *event, void *user_ctx)
 {
     switch (event->type) {
@@ -153,11 +128,6 @@ static void handle_event(const cdc_acm_host_dev_event_data_t *event, void *user_
     }
 }
 
-/**
- * @brief USB Host library handling task
- *
- * @param arg Unused
- */
 static void usb_lib_task(void *arg)
 {
     while (1) {
@@ -174,11 +144,6 @@ static void usb_lib_task(void *arg)
     }
 }
 
-/**
- * @brief USB Host library handling task
- *
- * @param arg Pointer to the message queue handle
- */
 static void usb_task_internal(void *arg)
 {
     QueueHandle_t message_queue = (QueueHandle_t)arg;
@@ -235,14 +200,6 @@ static void usb_task_internal(void *arg)
             .bDataBits = EXAMPLE_DATA_BITS,
         };
         ESP_ERROR_CHECK(vcp->line_coding_set(&line_coding));
-
-        /*
-        Now the USB-to-UART converter is configured and receiving data.
-        You can use standard CDC-ACM API to interact with it. E.g.
-
-        ESP_ERROR_CHECK(vcp->set_control_line_state(false, true));
-        ESP_ERROR_CHECK(vcp->tx_blocking((uint8_t *)"Test string", 12));
-        */
 
         // Send some dummy data
         ESP_LOGI(TAG, "Sending data through CdcAcmDevice");
